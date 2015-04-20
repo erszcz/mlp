@@ -37,9 +37,9 @@ parse_bosh_sending(Pattern, Data) ->
     BPacket = eval(PacketAsStringifiedBinary ++ ".", []),
     case exml:parse(BPacket) of
         {ok, Element} ->
-            io:format("<< bosh sent:~n~n~s~n", [exml:to_pretty_iolist(Element)]);
+            io:format(">> bosh sent:~n~n~s~n", [exml:to_pretty_iolist(Element)]);
         _ ->
-            io:format("<< bosh sent (unparseable):~n~n~p~n~n", [BPacket])
+            io:format(">> bosh sent (unparseable):~n~n~p~n~n", [BPacket])
     end.
 
 %% 2015-04-02 09:32:33.300 [debug] <0.15387.42>@mod_bosh:info:204 Parsed body: 
@@ -52,7 +52,7 @@ parse_bosh_parsed(Pattern, Data) ->
     PacketIndex = string:rstr(Data, Pattern) + length(Pattern) + 1,
     StringifiedPacketTerm = string:substr(Data, PacketIndex),
     Element = eval(StringifiedPacketTerm ++ ".", []),
-    io:format(">> bosh received:~n~n~s~n", [exml:to_pretty_iolist(Element)]).
+    io:format("<< bosh received:~n~n~s~n", [exml:to_pretty_iolist(Element)]).
 
 no_action(_Pattern, _Data) ->
     ok.
