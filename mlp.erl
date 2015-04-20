@@ -7,13 +7,29 @@ main([]) ->
     loop(standard_io).
 
 loop(Handle) ->
+    loop(Handle, <<>>).
+
+loop(Handle, Buffer) ->
     case file:read_line(Handle) of
         {ok, Data} ->
-            process_line(Data),
-            loop(Handle);
+            CompleteData = append(Buffer, Data),
+            case process_line(CompleteData) of
+                ok -> loop(Handle, []);
+                {error, incomplete_log} ->
+                    loop(Handle, CompleteData)
+            end;
         eof -> ok;
         {error, Reason} -> io:format(standard_error, "error: ~p", [Reason])
     end.
+
+%loop(Handle, _, Buffer) ->
+%    case file:read_line(Handle) of
+%        {ok, Data} ->
+%            process_line(Data),
+%            loop(Handle);
+%        eof -> ok;
+%        {error, Reason} -> io:format(standard_error, "error: ~p", [Reason])
+%    end.
 
 process_line(Data) -> dispatch(Data).
 
@@ -44,7 +60,8 @@ parse_bosh_sending(Pattern, Data) ->
             io:format(">> bosh sent:~n~n~s~n", [exml:to_pretty_iolist(Element)]);
         _ ->
             io:format(">> bosh sent (unparseable):~n~n~p~n~n", [BPacket])
-    end.
+    end,
+    ok.
 
 %% 2015-04-02 09:32:33.300 [debug] <0.15387.42>@mod_bosh:info:204 Parsed body: 
 %%  {xmlel,<<"body">>,[{<<"xmlns">>,<<"http://jabber.org/protocol/httpbind">>},
@@ -56,7 +73,8 @@ parse_bosh_parsed(Pattern, Data) ->
     PacketIndex = string:rstr(Data, Pattern) + length(Pattern) + 1,
     StringifiedPacketTerm = string:substr(Data, PacketIndex),
     Element = eval(StringifiedPacketTerm ++ ".", []),
-    io:format("<< bosh received:~n~n~s~n", [exml:to_pretty_iolist(Element)]).
+    io:format("<< bosh received:~n~n~s~n", [exml:to_pretty_iolist(Element)]),
+    ok.
 
 %% 2015-04-20 14:49:48.246 [debug] <0.645.0>@ejabberd_c2s:send_text:1717
 %%  Send XML on stream = <<"<message from='asd@localhost/psi' to='zxc@somedomain'
@@ -71,20 +89,32 @@ parse_c2s_send_xml(Pattern, Data) ->
             io:format(">> c2s sent:~n~n~s~n", [exml:to_pretty_iolist(strip_whitespace_cdata(Element))]);
         _ ->
             io:format(">> c2s sent (unparseable):~n~n~p~n~n", [BPacket])
-    end.
+    end,
+    ok.
 
 %% 2015-04-17 11:33:57.073 [debug] <0.1569.0>@ejabberd_receiver:process_data:336
 %%  Received XML on stream = "<iq id='d18339903e770db69a1ede841df48375' type='get'>
 %% <query xmlns='jabber:iq:register'/></iq>"
 parse_c2s_received_xml(Pattern, Data) ->
-    PacketIndex = string:rstr(Data, Pattern) + length(Pattern),
-    StringifiedPacketTerm = string:substr(Data, PacketIndex),
-    BPacket = iolist_to_binary(eval(StringifiedPacketTerm ++ ".", [])),
-    case exml:parse(BPacket) of
-        {ok, Element} ->
-            io:format("<< c2s received:~n~n~s~n", [exml:to_pretty_iolist(strip_whitespace_cdata(Element))]);
-        _ ->
-            io:format("<< c2s received (unparseable):~n~n~p~n~n", [BPacket])
+    PacketIndex = string:rstr(Data, Pattern) + length(Pattern) + 1,
+    Len = length(Data) - PacketIndex - 1,
+    case Len < 0 of
+        %% Received keepalive:
+        %% 2015-04-20 16:11:51.207 [debug] <0.640.0>@ejabberd_receiver:process_data:336 Received XML on stream = "
+        %% "
+        true -> ok;
+        %% Any other "received" log message:
+        false ->
+            StringifiedPacketTerm = string:substr(Data, PacketIndex, Len),
+            DoubleQuoteEscapedTerm = escape_double_quotes(StringifiedPacketTerm),
+            BPacket = iolist_to_binary(eval("\"" ++ DoubleQuoteEscapedTerm ++ "\".", [])),
+            case exml:parse(BPacket) of
+                {ok, Element} ->
+                    io:format("<< c2s received:~n~n~s~n", [exml:to_pretty_iolist(strip_whitespace_cdata(Element))]),
+                    ok;
+                _ ->
+                    {error, incomplete_log}
+            end
     end.
 
 no_action(_Pattern, _Data) ->
@@ -119,3 +149,9 @@ strip_whitespace_cdata(#xmlel{children = Children} = El) ->
     El#xmlel{children = [ C || C0 <- Children,
                                C <- [strip_whitespace_cdata(C0)],
                                C /= undefined ]}.
+
+append(Buffer, Data) ->
+    binary_to_list(iolist_to_binary([Buffer, Data])).
+
+escape_double_quotes(String) ->
+    re:replace(String, "\"", "'", [global, {return, list}]).
