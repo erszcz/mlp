@@ -1,6 +1,8 @@
 -module(mlp).
 -compile([export_all]).
 
+-include_lib("exml/include/exml.hrl").
+
 main([]) ->
     loop(standard_io).
 
@@ -17,7 +19,9 @@ process_line(Data) -> dispatch(Data).
 
 dispatch(Data) ->
     Actions = [ {"mod_bosh:info:208 Sending (binary) to", fun parse_bosh_sending/2},
-                {"mod_bosh:info:204 Parsed body:", fun parse_bosh_parsed/2} ],
+                {"mod_bosh:info:204 Parsed body:", fun parse_bosh_parsed/2},
+                {"ejabberd_c2s:send_text:1717 Send XML on stream = ", fun parse_c2s_send_xml/2},
+                {"ejabberd_receiver:process_data:336 Received XML on stream = ", fun parse_c2s_received_xml/2} ],
     {Pattern, Action} = lists:foldl(pa:bind(fun match_line/3, Data),
                                     {"(no match)", fun no_action/2}, Actions),
     Action(Pattern, Data).
@@ -54,6 +58,35 @@ parse_bosh_parsed(Pattern, Data) ->
     Element = eval(StringifiedPacketTerm ++ ".", []),
     io:format("<< bosh received:~n~n~s~n", [exml:to_pretty_iolist(Element)]).
 
+%% 2015-04-20 14:49:48.246 [debug] <0.645.0>@ejabberd_c2s:send_text:1717
+%%  Send XML on stream = <<"<message from='asd@localhost/psi' to='zxc@somedomain'
+%%  xml:lang='en' type='chat' id='aabf12312312312312a'>\n<body>a</body>\n
+%% <archived by='zxc@somedomain' id='A517BLU0ANO1'/></message>">>
+parse_c2s_send_xml(Pattern, Data) ->
+    PacketIndex = string:rstr(Data, Pattern) + length(Pattern),
+    StringifiedPacketTerm = string:substr(Data, PacketIndex),
+    BPacket = iolist_to_binary(eval(StringifiedPacketTerm ++ ".", [])),
+    case exml:parse(BPacket) of
+        {ok, Element} ->
+            io:format(">> c2s sent:~n~n~s~n", [exml:to_pretty_iolist(strip_whitespace_cdata(Element))]);
+        _ ->
+            io:format(">> c2s sent (unparseable):~n~n~p~n~n", [BPacket])
+    end.
+
+%% 2015-04-17 11:33:57.073 [debug] <0.1569.0>@ejabberd_receiver:process_data:336
+%%  Received XML on stream = "<iq id='d18339903e770db69a1ede841df48375' type='get'>
+%% <query xmlns='jabber:iq:register'/></iq>"
+parse_c2s_received_xml(Pattern, Data) ->
+    PacketIndex = string:rstr(Data, Pattern) + length(Pattern),
+    StringifiedPacketTerm = string:substr(Data, PacketIndex),
+    BPacket = iolist_to_binary(eval(StringifiedPacketTerm ++ ".", [])),
+    case exml:parse(BPacket) of
+        {ok, Element} ->
+            io:format("<< c2s received:~n~n~s~n", [exml:to_pretty_iolist(strip_whitespace_cdata(Element))]);
+        _ ->
+            io:format("<< c2s received (unparseable):~n~n~p~n~n", [BPacket])
+    end.
+
 no_action(_Pattern, _Data) ->
     ok.
     %case string:strip(Data, both) of
@@ -79,3 +112,10 @@ eval(S, Environ) ->
     {ok, Parsed} = erl_parse:parse_exprs(Scanned),
     {value, Term, []} = erl_eval:exprs(Parsed, Environ),
     Term.
+
+strip_whitespace_cdata({xmlcdata, <<"\n">>}) -> undefined;
+strip_whitespace_cdata({xmlcdata, _} = El) -> El;
+strip_whitespace_cdata(#xmlel{children = Children} = El) ->
+    El#xmlel{children = [ C || C0 <- Children,
+                               C <- [strip_whitespace_cdata(C0)],
+                               C /= undefined ]}.
