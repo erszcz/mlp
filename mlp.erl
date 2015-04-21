@@ -57,9 +57,9 @@ parse_bosh_sending(Pattern, Data) ->
     BPacket = eval(PacketAsStringifiedBinary ++ ".", []),
     case exml:parse(BPacket) of
         {ok, Element} ->
-            io:format(">> bosh sent:~n~n~s~n", [exml:to_pretty_iolist(Element)]);
+            io:format(">> bosh sent:~n~s~n", [prettify_xml(Element)]);
         _ ->
-            io:format(">> bosh sent (unparseable):~n~n~p~n~n", [BPacket])
+            io:format(">> bosh sent (unparseable):~n~p~n~n", [BPacket])
     end,
     ok.
 
@@ -73,7 +73,7 @@ parse_bosh_parsed(Pattern, Data) ->
     PacketIndex = string:rstr(Data, Pattern) + length(Pattern) + 1,
     StringifiedPacketTerm = string:substr(Data, PacketIndex),
     Element = eval(StringifiedPacketTerm ++ ".", []),
-    io:format("<< bosh received:~n~n~s~n", [exml:to_pretty_iolist(Element)]),
+    io:format("<< bosh received:~n~s~n", [prettify_xml(Element)]),
     ok.
 
 %% 2015-04-20 14:49:48.246 [debug] <0.645.0>@ejabberd_c2s:send_text:1717
@@ -86,9 +86,9 @@ parse_c2s_send_xml(Pattern, Data) ->
     BPacket = iolist_to_binary(eval(StringifiedPacketTerm ++ ".", [])),
     case exml:parse(BPacket) of
         {ok, Element} ->
-            io:format(">> c2s sent:~n~n~s~n", [exml:to_pretty_iolist(strip_whitespace_cdata(Element))]);
+            io:format(">> c2s sent:~n~s~n", [prettify_xml(strip_whitespace_cdata(Element))]);
         _ ->
-            io:format(">> c2s sent (unparseable):~n~n~p~n~n", [BPacket])
+            io:format(">> c2s sent (unparseable):~n~p~n~n", [BPacket])
     end,
     ok.
 
@@ -110,7 +110,7 @@ parse_c2s_received_xml(Pattern, Data) ->
             BPacket = iolist_to_binary(eval("\"" ++ DoubleQuoteEscapedTerm ++ "\".", [])),
             case exml:parse(BPacket) of
                 {ok, Element} ->
-                    io:format("<< c2s received:~n~n~s~n", [exml:to_pretty_iolist(strip_whitespace_cdata(Element))]),
+                    io:format("<< c2s received:~n~s~n", [prettify_xml(strip_whitespace_cdata(Element))]),
                     ok;
                 _ ->
                     {error, incomplete_log}
@@ -161,3 +161,6 @@ append(Buffer, Data) ->
 
 escape_double_quotes(String) ->
     re:replace(String, "\"", "'", [global, {return, list}]).
+
+prettify_xml(Element) ->
+    exml:to_pretty_iolist(Element, 1, "  ").
