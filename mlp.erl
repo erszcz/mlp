@@ -143,12 +143,18 @@ eval(S, Environ) ->
     {value, Term, []} = erl_eval:exprs(Parsed, Environ),
     Term.
 
-strip_whitespace_cdata({xmlcdata, <<"\n">>}) -> undefined;
-strip_whitespace_cdata({xmlcdata, _} = El) -> El;
+strip_whitespace_cdata({xmlcdata, CData} = El) ->
+    case is_whitespace_only(CData) of
+        true -> skip;
+        false -> El
+    end;
 strip_whitespace_cdata(#xmlel{children = Children} = El) ->
     El#xmlel{children = [ C || C0 <- Children,
                                C <- [strip_whitespace_cdata(C0)],
-                               C /= undefined ]}.
+                               C /= skip ]}.
+
+is_whitespace_only(Data) ->
+    re:run(Data, <<"\S">>) == nomatch.
 
 append(Buffer, Data) ->
     binary_to_list(iolist_to_binary([Buffer, Data])).
