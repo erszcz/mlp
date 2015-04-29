@@ -154,7 +154,7 @@ strip_whitespace_cdata(#xmlel{children = Children} = El) ->
                                C /= skip ]}.
 
 is_whitespace_only(Data) ->
-    re:run(Data, <<"\S">>) == nomatch.
+    re:run(Data, <<"\\S">>) == nomatch.
 
 append(Buffer, Data) ->
     binary_to_list(iolist_to_binary([Buffer, Data])).
