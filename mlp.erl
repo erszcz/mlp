@@ -115,6 +115,9 @@ parse_c2s_received_xml(_Pattern, {match, [{MFrom, MLen}]}, Data) ->
                 {<<"<stream:stream", _/bytes>>, _} ->
                     print("<< c2s received (unparseable):~n~s~n~n", [BPacket]),
                     ok;
+                {<<"</stream:stream>">>, _} ->
+                    print("<< c2s received (unparseable):~n~s~n~n", [BPacket]),
+                    ok;
                 {_, {ok, Element}} ->
                     print("<< c2s received:~n~s~n", [prettify_xml(strip_whitespace_cdata(Element))]),
                     ok;
@@ -124,6 +127,7 @@ parse_c2s_received_xml(_Pattern, {match, [{MFrom, MLen}]}, Data) ->
     end.
 
 no_action(_Pattern, _, _Data) ->
+    %print("no action: ~s~n", [Data]),
     ok.
     %case string:strip(Data, both) of
     %    [] -> ok;
