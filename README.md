@@ -1,5 +1,34 @@
 # MongooseIM (BOSH) log processor
 
+## Important notice
+
+As of now the script is under a small rewrite to support a broader range
+of server log messages - BOSH logs aren't supported yet.
+
+## How to use
+
+To filter out an XMPP stream from MongooseIM log:
+
+-   set the logging level to 5 - either in the config file or in the
+    server shell (specifically for `ejabberd_c2s` and
+    `ejabberd_receiver` modules) with:
+
+        ejabberd_loglevel:set_custom(ejabberd_c2s, 5).
+        ejabberd_loglevel:set_custom(ejabberd_receiver, 5).
+
+-   gather some logs
+
+-   for XMPP over TCP identify the process IDs of the c2s and receiver processes you're
+    interested in (by inspecting the log or by some means in the server shell),
+    for BOSH identify the BOSH session ID
+
+-   use the `mlp` filter, but first grep using your process/session IDs from the
+    previous point to filter out irrelevant lines:
+
+        grep -E '<0.1180.0>|<0.1179.0>' ejabberd.log | mlp
+
+## Example
+
 This script takes this:
 
     $ cat log/ejabberd.log | grep b851f0c040b750f263baa1437b4c04bb215c7762
