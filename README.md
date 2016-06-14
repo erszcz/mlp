@@ -1,4 +1,4 @@
-# MongooseIM (BOSH) log processor
+# MongooseIM log processor
 
 ## Important notice
 
@@ -6,6 +6,15 @@ As of now the script is under a small rewrite to support a broader range
 of server log messages - BOSH logs aren't supported yet.
 
 ## How to use
+
+Clone and build:
+
+```
+git clone https://github.com/erszcz/mlp
+cd mlp
+./rebar get-deps
+./rebar compile
+```
 
 To filter out an XMPP stream from MongooseIM log:
 
@@ -23,13 +32,14 @@ To filter out an XMPP stream from MongooseIM log:
     for BOSH identify the BOSH session ID
 
 -   use the `mlp` filter, but first grep using your process/session IDs from the
-    previous point to filter out irrelevant lines:
+    previous point to filter out irrelevant lines (c2s and receiver
+    process IDs used in this example):
 
         grep -E '<0.1180.0>|<0.1179.0>' ejabberd.log | mlp
 
 ## Example
 
-This script takes this:
+This script takes this (BOSH session ID used in this example):
 
 ```
 $ cat log/ejabberd.log | grep b851f0c040b750f263baa1437b4c04bb215c7762
