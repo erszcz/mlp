@@ -121,6 +121,14 @@ parse_c2s_received_xml(_Pattern, {match, [{MFrom, MLen}]}, Data) ->
                 {_, {ok, Element}} ->
                     print("<< c2s received:~n~s~n", [prettify_xml(strip_whitespace_cdata(Element))]),
                     ok;
+                {_, {error, {bad_parse, ParsedElements}}} ->
+                    case recover(ParsedElements) of
+                        false -> {error, unparseable};
+                        RecoveredElements ->
+                            [ print("<< c2s received:~n~s~n", [prettify_xml(strip_whitespace_cdata(R))])
+                              || R <- RecoveredElements ],
+                            ok
+                    end;
                 _ ->
                     {error, incomplete_log}
             end
@@ -182,3 +190,7 @@ inject_xmlns_stream(<<"<stream:features>", _/bytes>> = BPacket) ->
     Replacement = <<"stream:features xmlns:stream='http://etherx.jabber.org/streams'>">>,
     re:replace(BPacket, <<"stream:features>">>, Replacement, [{return, binary}]);
 inject_xmlns_stream(BPacket) -> BPacket.
+
+recover([{xmlstreamstart, _, _} | T]) -> recover(T);
+recover([{xmlel, _, _, _} = El | T]) -> [El | recover(T)];
+recover([{xmlstreamend, _}]) -> [].
