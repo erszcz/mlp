@@ -1,0 +1,14 @@
+{application, mlp,
+ [
+  {description, "MongooseIM log processor / XMPP pretty-printer"},
+  {vsn, "1"},
+  {modules, [
+             mlp
+            ]},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {env, []}
+ ]}.
